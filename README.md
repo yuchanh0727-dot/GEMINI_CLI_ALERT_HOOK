@@ -57,7 +57,7 @@ gemini --version
 ### 2-1. 클론 또는 다운로드
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/gemini-cli-alert-hook.git
+git clone https://github.com/yuchanh0727-dot/gemini-cli-alert-hook.git
 ```
 
 ### 2-2. `.gemini` 폴더를 프로젝트에 복사
