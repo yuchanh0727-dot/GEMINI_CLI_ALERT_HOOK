@@ -1,0 +1,31 @@
+{
+  "hooks": {
+    "AfterAgent": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "name": "alert-bell-tts",
+            "description": "Plays a chime and speaks a summary when Gemini finishes responding.",
+            "command": "python -u .gemini/hooks/alert/scripts/alert.py",
+            "timeout": 30000
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "ToolPermission",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "alert-permission-noti",
+            "description": "Plays a chime and says 'Permission needed.' when Gemini asks for tool permission.",
+            "command": "python -u .gemini/hooks/alert/scripts/alert.py --message \"Permission needed.\" --sound noti",
+            "timeout": 15000
+          }
+        ]
+      }
+    ]
+  }
+}

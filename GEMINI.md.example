@@ -1,0 +1,17 @@
+### Alert Hook — TTS tag requirement
+
+**Every response MUST end with a `<!-- tts: ... -->` tag** on its own line.
+The AfterAgent hook parses this tag to generate a spoken notification. If the
+tag is missing, the user hears only a generic "Task completed" bell.
+
+Format:
+```
+<!-- tts: {"m": "Done. Short summary of what was done."} -->
+```
+
+Rules:
+- `m` value must be a single English sentence, max 15 words.
+- Start with "Done." followed by a brief summary.
+- NEVER include file paths, URLs, code snippets, or slashes.
+- Be conversational and natural — this is read aloud.
+- Even for simple Q&A or conversational replies, include the tag.

@@ -1,0 +1,4 @@
+.gemini/hooks/alert/scripts/alert_debug.json
+__pycache__/
+*.pyc
+.DS_Store
