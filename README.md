@@ -1,3 +1,4 @@
+[English](./README.en.md) | 한국어
 # Gemini CLI Alert Hook
 
 Gemini CLI가 응답을 끝내거나 도구 권한을 요청할 때 **소리(차임벨) + 음성(TTS) 요약**으로
