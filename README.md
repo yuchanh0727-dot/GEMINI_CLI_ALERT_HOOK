@@ -1,3 +1,4 @@
+[English](./README.en.md) | 한국어
 # Gemini CLI Alert Hook
 
 Gemini CLI가 응답을 끝내거나 도구 권한을 요청할 때 **소리(차임벨) + 음성(TTS) 요약**으로
@@ -57,7 +58,7 @@ gemini --version
 ### 2-1. 클론 또는 다운로드
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/gemini-cli-alert-hook.git
+git clone https://github.com/yuchanh0727-dot/gemini-cli-alert-hook.git
 ```
 
 ### 2-2. `.gemini` 폴더를 프로젝트에 복사
