@@ -23,6 +23,8 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 
 
 # ---------------------------------------------------------------------------
@@ -44,7 +46,7 @@ FALLBACK_MESSAGE = "Done. Task completed."
 # Helpers
 # ---------------------------------------------------------------------------
 
-def play(path: str) -> None:
+def _play_blocking(path: str) -> None:
     """Play an audio file and wait for it to finish."""
     system = platform.system()
     if system == "Darwin":
@@ -68,6 +70,18 @@ def play(path: str) -> None:
         subprocess.run(["powershell", "-Command", ps], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     else:
         subprocess.run(["mpv", "--no-video", path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def play(path: str) -> None:
+    """Play an audio file and wait for it to finish (blocking)."""
+    _play_blocking(path)
+
+
+def play_async(path: str) -> threading.Thread:
+    """Start playing an audio file in the background; returns immediately."""
+    t = threading.Thread(target=_play_blocking, args=(path,), daemon=True)
+    t.start()
+    return t
 
 
 def parse_tts_tag(text: str) -> str:
@@ -106,9 +120,23 @@ def debug_log(msg: str, mode: str = "a") -> None:
 # ---------------------------------------------------------------------------
 
 def speak(message: str, sound: str = "bell") -> None:
-    """Play a notification sound then TTS for the given message."""
-    message = sanitize(message)
+    """Play a notification sound while generating TTS in parallel, then play the TTS.
 
+    The bell/noti sound and the TTS generation (which is a network round-trip
+    to edge-tts) run at the same time instead of one after another, so the
+    perceived delay is roughly max(bell duration, TTS generation time)
+    instead of the sum of both.
+    """
+    t_start = time.time()
+    message = sanitize(message)
+    sound_path = NOTI_PATH if sound == "noti" else BELL_PATH
+
+    # Start the notification sound immediately, without waiting for it.
+    bell_thread = play_async(sound_path)
+    t_bell_started = time.time()
+    debug_log(f"TIMING: bell thread launched at +{t_bell_started - t_start:.2f}s")
+
+    # Generate the TTS audio while the bell is playing.
     tmp_path = None
     try:
         import edge_tts
@@ -117,19 +145,33 @@ def speak(message: str, sound: str = "bell") -> None:
             tmp_path = tmp.name
         communicate = edge_tts.Communicate(message, VOICE, rate=RATE)
         asyncio.run(communicate.save(tmp_path))
+        t_tts_done = time.time()
+        debug_log(f"TIMING: TTS generated at +{t_tts_done - t_start:.2f}s "
+                   f"(took {t_tts_done - t_bell_started:.2f}s)")
     except Exception as e:
         debug_log(f"TTS_ERROR: {type(e).__name__}: {e}")
+        t_tts_done = time.time()
 
-    sound_path = NOTI_PATH if sound == "noti" else BELL_PATH
-    play(sound_path)
+    # Make sure the bell has finished before the TTS starts, so they don't
+    # overlap (usually already true, since TTS generation takes longer).
+    bell_thread.join()
+    t_bell_done = time.time()
+    debug_log(f"TIMING: bell finished at +{t_bell_done - t_start:.2f}s "
+               f"(bell playback took {t_bell_done - t_bell_started:.2f}s)")
+
     if tmp_path and os.path.exists(tmp_path):
         try:
             play(tmp_path)
+            t_tts_played = time.time()
+            debug_log(f"TIMING: TTS playback finished at +{t_tts_played - t_start:.2f}s "
+                       f"(playback took {t_tts_played - t_bell_done:.2f}s)")
         finally:
             try:
                 os.remove(tmp_path)
             except Exception:
                 pass
+
+    debug_log(f"TIMING: total elapsed {time.time() - t_start:.2f}s")
 
 
 # ---------------------------------------------------------------------------
