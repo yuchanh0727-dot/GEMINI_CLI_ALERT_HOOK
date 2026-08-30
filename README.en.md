@@ -262,11 +262,24 @@ duration.
 The bell/notification sound and the TTS generation (an edge-tts network
 request) also now run **in parallel**, cutting the perceived delay further.
 
-| | v1.0 (initial) | v1.1 (current) |
+| | v1.0 (initial) | v1.1 |
 |---|---|---|
 | Windows playback method | PowerShell + MediaPlayer polling | Direct `winmm.dll` MCI call |
 | Playing a 1-second bell file | Up to 9+ seconds | About 1–1.3 seconds |
 | Bell playback vs. TTS generation | Sequential | Parallel |
+
+| | v1.1 | v1.3 (Current) |
+| ---- | ---- | -------- |
+| Windows playback method | `winmm.dll` MCI direct call | `winmm.dll` MCI direct call |
+| Ringtone ↔ TTS volume | Cannot be adjusted separately | **Can be adjusted separately** |
+| Ringtone volume | Fixed/shared setting | **Separate setting available** |
+| TTS volume | Fixed/shared setting | **Separate setting available** |
+In previous versions, the ringtone and TTS voice **shared the same volume setting or could not be adjusted separately**, which caused the ringtone to sound relatively louder than the TTS voice.
+
+**In v1.3, the code was modified to allow the ringtone and TTS volume to be adjusted independently.**
+
+This allows users to set the ringtone and TTS voice volume separately according to their environment, reducing the issue where the ringtone could interfere with the TTS voice.
+
 
 ---
 
