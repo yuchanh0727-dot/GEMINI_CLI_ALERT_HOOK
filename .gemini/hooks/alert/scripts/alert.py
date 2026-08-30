@@ -12,6 +12,7 @@ Manual test: python alert.py --message "your text here"
 
 Dependencies:
   pip install edge-tts
+  (mutagen only needed as a rare fallback; not required for normal use)
 """
 
 import argparse
@@ -41,45 +42,81 @@ VOICE = "en-GB-SoniaNeural"
 RATE = "+30%"
 FALLBACK_MESSAGE = "Done. Task completed."
 
+# Individual volume settings (MCI volume range: 0 ~ 1000)
+BELL_VOLUME = 200  # Notification bell volume
+TTS_VOLUME = 1000   # TTS speech volume
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _play_blocking(path: str) -> None:
+def _get_duration_seconds(path: str) -> float:
+    """Read the real playback duration of an mp3 file using mutagen.
+    Falls back to a conservative estimate if mutagen isn't available."""
+    try:
+        from mutagen.mp3 import MP3
+        return float(MP3(path).info.length)
+    except Exception as e:
+        debug_log(f"DURATION_FALLBACK: {type(e).__name__}: {e}")
+        # Fallback: rough estimate from file size (mp3 ~ 16KB/sec at typical bitrate).
+        try:
+            size = os.path.getsize(path)
+            return max(1.0, size / 16000)
+        except Exception:
+            return 2.0
+
+
+def _play_windows_mci(path: str, volume: int) -> None:
+    """Play an mp3 file on Windows using the built-in MCI API directly
+    (winmm.dll), instead of spawning a PowerShell process. This avoids the
+    multi-second overhead of starting PowerShell and loading .NET assemblies
+    (Add-Type), and 'play ... wait' blocks for exactly the real duration."""
+    import ctypes
+
+    winmm = ctypes.windll.winmm
+    alias = f"alert{threading.get_ident()}{int(time.time() * 1000)}"
+    try:
+        winmm.mciSendStringW(f'open "{path}" type mpegvideo alias {alias}', None, 0, None)
+        winmm.mciSendStringW(f'setaudio {alias} volume to {volume}', None, 0, None)
+        winmm.mciSendStringW(f'play {alias} wait', None, 0, None)
+    finally:
+        winmm.mciSendStringW(f'close {alias}', None, 0, None)
+
+
+def _play_blocking(path: str, volume: int = 1000) -> None:
     """Play an audio file and wait for it to finish."""
     system = platform.system()
     if system == "Darwin":
         subprocess.run(["afplay", path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     elif system == "Windows":
-        ps = (
-            "Add-Type -AssemblyName presentationCore;"
-            "$p = New-Object System.Windows.Media.MediaPlayer;"
-            f"$p.Open([uri]'{path}');"
-            "Start-Sleep -Milliseconds 200;"
-            "$p.Play();"
-            "Start-Sleep -Milliseconds 200;"
-            "$d = $p.NaturalDuration;"
-            "if ($d.HasTimeSpan) {"
-            "  while ($p.Position -lt $d.TimeSpan) { Start-Sleep -Milliseconds 50 }"
-            "} else {"
-            "  Start-Sleep -Seconds 5"
-            "};"
-            "$p.Stop(); $p.Close()"
-        )
-        subprocess.run(["powershell", "-Command", ps], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            _play_windows_mci(path, volume)
+        except Exception as e:
+            debug_log(f"MCI_ERROR: {type(e).__name__}: {e}")
+            # Fallback to the PowerShell approach if MCI fails for some reason.
+            duration = _get_duration_seconds(path)
+            ps = (
+                "Add-Type -AssemblyName presentationCore;"
+                "$p = New-Object System.Windows.Media.MediaPlayer;"
+                f"$p.Open([uri]'{path}');"
+                f"$p.Volume = {volume / 1000.0:.2f};"
+                "$p.Play();"
+                f"Start-Sleep -Seconds {duration + 0.3:.2f};"
+                "$p.Stop(); $p.Close()"
+            )
+            subprocess.run(["powershell", "-Command", ps], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     else:
         subprocess.run(["mpv", "--no-video", path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def play(path: str) -> None:
+def play(path: str, volume: int = 1000) -> None:
     """Play an audio file and wait for it to finish (blocking)."""
-    _play_blocking(path)
+    _play_blocking(path, volume)
 
 
-def play_async(path: str) -> threading.Thread:
+def play_async(path: str, volume: int = 1000) -> threading.Thread:
     """Start playing an audio file in the background; returns immediately."""
-    t = threading.Thread(target=_play_blocking, args=(path,), daemon=True)
+    t = threading.Thread(target=_play_blocking, args=(path, volume), daemon=True)
     t.start()
     return t
 
@@ -132,7 +169,7 @@ def speak(message: str, sound: str = "bell") -> None:
     sound_path = NOTI_PATH if sound == "noti" else BELL_PATH
 
     # Start the notification sound immediately, without waiting for it.
-    bell_thread = play_async(sound_path)
+    bell_thread = play_async(sound_path, volume=BELL_VOLUME)
     t_bell_started = time.time()
     debug_log(f"TIMING: bell thread launched at +{t_bell_started - t_start:.2f}s")
 
@@ -161,7 +198,7 @@ def speak(message: str, sound: str = "bell") -> None:
 
     if tmp_path and os.path.exists(tmp_path):
         try:
-            play(tmp_path)
+            play(tmp_path, volume=TTS_VOLUME)
             t_tts_played = time.time()
             debug_log(f"TIMING: TTS playback finished at +{t_tts_played - t_start:.2f}s "
                        f"(playback took {t_tts_played - t_bell_done:.2f}s)")
