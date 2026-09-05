@@ -26,6 +26,18 @@ Gemini CLI가 응답을 끝내거나 도구 권한을 요청할 때 **소리(차
 | Gemini CLI | 아래 [설치](#1-gemini-cli-설치) 참고 |
 | 오디오 재생 도구 | macOS: `afplay`(기본 내장) · Windows: PowerShell(기본 내장) · Linux: `mpv` (`sudo apt install mpv`) |
 
+## 볼륨 조절
+
+벨소리와 TTS 음성이 너무 크거나 작으면, `alert.py` 상단의 값을 바꿔서 조절할 수 있습니다.
+
+```python
+BELL_VOLUME = 200   # 벨소리 볼륨
+TTS_VOLUME = 1000   # TTS 음성 볼륨
+```
+
+- 범위는 0~1000 (1000이 100%)
+- 둘은 서로 독립적으로 조절됩니다 (벨소리만 줄이고 TTS는 그대로 두는 것도 가능)
+- 값 바꾼 후 저장만 하면 바로 적용됩니다, 별도 재시작 불필요
 ---
 
 ## 1. Gemini CLI 설치
