@@ -28,6 +28,18 @@ CLI is done while you do something else.
 | Gemini CLI | see [Install](#1-install-gemini-cli) below |
 | An audio player | macOS: `afplay` (built-in) · Windows: PowerShell (built-in) · Linux: `mpv` (`sudo apt install mpv`) |
 
+## Volume Control
+
+If the bell or TTS voice is too loud or too quiet, you can adjust it at the top of `alert.py`.
+
+```python
+BELL_VOLUME = 200   # Bell notification volume
+TTS_VOLUME = 1000   # TTS speech volume
+```
+
+- Range is 0–1000 (1000 = 100%)
+- The two are independent — you can lower just the bell while keeping TTS at full volume, or vice versa
+- Changes take effect immediately after saving, no restart needed
 ---
 
 ## 1. Install Gemini CLI
