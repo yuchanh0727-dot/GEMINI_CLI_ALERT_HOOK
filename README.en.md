@@ -280,6 +280,7 @@ request) also now run **in parallel**, cutting the perceived delay further.
 | Playing a 1-second bell file | Up to 9+ seconds | About 1–1.3 seconds |
 | Bell playback vs. TTS generation | Sequential | Parallel |
 
+### v1.3 — Added separate volume controls for the bell/notification sound and TTS voice.
 | | v1.1 | v1.3 (Current) |
 | ---- | ---- | -------- |
 | Windows playback method | `winmm.dll` MCI direct call | `winmm.dll` MCI direct call |
