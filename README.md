@@ -17,6 +17,24 @@ Gemini CLI가 응답을 끝내거나 도구 권한을 요청할 때 **소리(차
 
 터미널을 계속 쳐다보지 않아도, 다른 작업을 하다가 Gemini CLI가 끝났는지 소리로 알 수 있습니다.
 
+> [!WARNING]
+> **Windows(PowerShell) 필독 — 명령어 맨 앞에 따옴표를 쓰지 마세요**
+>
+> **증상**: Gemini는 정상 응답하는데 `Hook(s) [alert-bell-tts] failed for event AfterAgent` 경고가 뜨고, F12 디버그 콘솔에 `UnexpectedToken '-u'`가 보임
+>
+> **원인**: Gemini CLI는 훅 명령어를 PowerShell로 실행합니다. PowerShell은 따옴표로 시작하는 문장을 명령이 아니라 문자열로 읽어서, 뒤에 오는 `-u`에서 문법 오류가 납니다.
+>
+> ```json
+> ❌ "command": "\"C:\\Users\\me\\miniconda3\\python.exe\" -u C:\\Users\\me\\.gemini\\hooks\\alert\\scripts\\alert.py"
+> ✅ "command": "C:\\Users\\me\\miniconda3\\python.exe -u C:\\Users\\me\\.gemini\\hooks\\alert\\scripts\\alert.py"
+> ```
+>
+> 경로에 공백이 있어서 따옴표가 꼭 필요하다면 맨 앞에 `& `를 붙이세요.
+>
+> ```json
+> "command": "& \"C:\\Users\\My Name\\miniconda3\\python.exe\" -u \"C:\\Users\\My Name\\.gemini\\hooks\\alert\\scripts\\alert.py\""
+> ```
+
 ## 사전 준비물
 
 | 항목 | 확인 방법 |
