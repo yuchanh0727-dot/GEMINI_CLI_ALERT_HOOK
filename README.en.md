@@ -19,6 +19,24 @@ Gemini CLI's Hooks system (`AfterAgent`, `Notification`).
 So you don't have to keep staring at the terminal — you'll hear when Gemini
 CLI is done while you do something else.
 
+> [!WARNING]
+> **Windows (PowerShell) users — do not start the command with a quote**
+>
+> **Symptom**: Gemini replies normally, but you see `Hook(s) [alert-bell-tts] failed for event AfterAgent`, and the F12 debug console shows `UnexpectedToken '-u'`.
+>
+> **Cause**: Gemini CLI runs hook commands through PowerShell. PowerShell treats a statement that begins with a quote as a string, not a command, so the `-u` after it is a syntax error.
+>
+> ```json
+> ❌ "command": "\"C:\\Users\\me\\miniconda3\\python.exe\" -u C:\\Users\\me\\.gemini\\hooks\\alert\\scripts\\alert.py"
+> ✅ "command": "C:\\Users\\me\\miniconda3\\python.exe -u C:\\Users\\me\\.gemini\\hooks\\alert\\scripts\\alert.py"
+> ```
+>
+> If your path contains spaces and you must use quotes, start the command with `& `.
+>
+> ```json
+> "command": "& \"C:\\Users\\My Name\\miniconda3\\python.exe\" -u \"C:\\Users\\My Name\\.gemini\\hooks\\alert\\scripts\\alert.py\""
+> ```
+
 ## Prerequisites
 
 | Requirement | Check |
