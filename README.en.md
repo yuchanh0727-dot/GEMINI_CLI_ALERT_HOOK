@@ -19,6 +19,18 @@ Gemini CLI's Hooks system (`AfterAgent`, `Notification`).
 So you don't have to keep staring at the terminal — you'll hear when Gemini
 CLI is done while you do something else.
 
+## Quick Setup (Recommended)
+
+Ask Gemini:
+
+```text
+Setup this hook: https://github.com/yuchanh0727-dot/GEMINI_CLI_ALERT_HOOK.git
+```
+
+That's it. Gemini CLI handles the rest.
+
+---
+
 > [!WARNING]
 > **Windows (PowerShell) users — do not start the command with a quote**
 >
@@ -58,6 +70,53 @@ TTS_VOLUME = 1000   # TTS speech volume
 - Range is 0–1000 (1000 = 100%)
 - The two are independent — you can lower just the bell while keeping TTS at full volume, or vice versa
 - Changes take effect immediately after saving, no restart needed
+
+## Mute / Unmute (Toggle Alert Sound)
+
+When you are in meetings or quiet places, you can easily toggle the alert sound on/off using slash commands or conversational prompts:
+
+| Action | Slash Command | Prompt Example |
+|---|---|---|
+| **Turn ON sound** | `/alerton` (or `/skillon`) | "alert on", "turn on alert", "enable sound" |
+| **Mute sound (OFF)** | `/alertoff` (or `/skilloff`) | "alert off", "mute alert", "silence alert" |
+
+- Terminal command: `python .gemini/hooks/alert/scripts/alert_sound.py on` (or `off`, `status`)
+- State is persisted in `alert_sound.state` and preserved across sessions.
+
+## Voice
+
+You can customize the TTS spoken voice or hear preview samples.
+
+```bash
+S=.gemini/hooks/alert/scripts
+
+# Windows / Cross-platform (Python)
+python $S/alert_voice.py list                    # 8 preset voices, current one marked
+python $S/alert_voice.py sample en-US-GuyNeural  # Hear it once
+python $S/alert_voice.py set en-US-GuyNeural     # Save it
+
+# macOS / Linux (Bash)
+bash $S/alert_voice.sh list
+bash $S/alert_voice.sh sample en-US-GuyNeural
+bash $S/alert_voice.sh set en-US-GuyNeural
+```
+
+The choice is saved in `.gemini/hooks/alert/alert_voice.state`. Default: `en-GB-SoniaNeural`.
+
+### Customization
+
+Edit the constants at the top of `.gemini/hooks/alert/scripts/alert.py`:
+
+```python
+DEFAULT_VOICE = "en-GB-SoniaNeural"   # Used when no voice is saved
+RATE = "+30%"                          # Speech rate
+```
+
+To list all available Edge-TTS voices:
+```bash
+edge-tts --list-voices
+```
+
 ---
 
 ## 1. Install Gemini CLI
@@ -109,10 +168,17 @@ your-project/
     hooks/
       alert/
         scripts/
-          alert.py             # plays the sound + TTS
+          alert.py             # sound + TTS playback script
+          alert_sound.py       # sound ON/OFF toggle script (Python)
+          alert_sound.sh       # sound ON/OFF toggle script (Bash)
+          alert_voice.py       # TTS voice picker / sample script (Python)
+          alert_voice.sh       # TTS voice picker / sample script (Bash)
         sounds/
           bell.mp3
           noti.mp3
+    skills/
+      alerton/SKILL.md         # /alerton skill (turn on audio)
+      alertoff/SKILL.md        # /alertoff skill (mute audio)
 ```
 
 macOS / Linux:
@@ -299,17 +365,37 @@ request) also now run **in parallel**, cutting the perceived delay further.
 | Bell playback vs. TTS generation | Sequential | Parallel |
 
 ### v1.3 — Added separate volume controls for the bell/notification sound and TTS voice.
-| | v1.1 | v1.3 (Current) |
+| | v1.1 | v1.3 |
 | ---- | ---- | -------- |
 | Windows playback method | `winmm.dll` MCI direct call | `winmm.dll` MCI direct call |
 | Ringtone ↔ TTS volume | Cannot be adjusted separately | **Can be adjusted separately** |
 | Ringtone volume | Fixed/shared setting | **Separate setting available** |
 | TTS volume | Fixed/shared setting | **Separate setting available** |
+
 In previous versions, the ringtone and TTS voice **shared the same volume setting or could not be adjusted separately**, which caused the ringtone to sound relatively louder than the TTS voice.
 
 **In v1.3, the code was modified to allow the ringtone and TTS volume to be adjusted independently.**
 
 This allows users to set the ringtone and TTS voice volume separately according to their environment, reducing the issue where the ringtone could interfere with the TTS voice.
+
+### v1.4 — One-line Prompt Automated Setup (`SETUP.md`) & `/alerton`, `/alertoff` Skills
+
+| | Prior to v1.4 | v1.4 (Current) |
+|---|---|---|
+| Installation method | Manual clone, folder copying, and manual config editing | **Automated setup by AI agents with a one-line prompt** |
+| Setup guide | Requires reading long manual steps in README | **Agent-optimized `SETUP.md` provided** |
+| Global / Workspace scope | Manual absolute path calculations and JSON edits | **Agent configures paths and rules automatically** |
+| Sound ON/OFF control | Not supported (required manually setting volume to 0) | **Instant toggle via `/alerton` & `/alertoff` skills** |
+
+In earlier versions, setting up the hook required users to manually clone the repository, copy folders into project directories, install Python dependencies, and configure both `settings.json` and `GEMINI.md` rules by hand.
+
+**v1.4 adds `SETUP.md` (an AI agent setup instruction file), enabling automated end-to-end installation with just a single prompt.**
+
+```text
+Setup this hook: https://github.com/yuchanh0727-dot/GEMINI_CLI_ALERT_HOOK.git
+```
+
+Additionally, it now bundles **`/alerton`** and **`/alertoff`** skills along with cross-platform toggle scripts (`alert_sound.py`, `alert_sound.sh`), letting you mute or unmute audio notifications on the fly using simple slash commands or chat prompts.
 
 
 ---

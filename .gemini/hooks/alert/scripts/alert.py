@@ -37,14 +37,35 @@ HOOK_DIR = os.path.dirname(SCRIPT_DIR)
 BELL_PATH = os.path.join(HOOK_DIR, "sounds", "bell.mp3")
 NOTI_PATH = os.path.join(HOOK_DIR, "sounds", "noti.mp3")
 DEBUG_PATH = os.path.join(SCRIPT_DIR, "alert_debug.json")
+STATE_PATH = os.path.join(HOOK_DIR, "alert_sound.state")
+VOICE_STATE_PATH = os.path.join(HOOK_DIR, "alert_voice.state")
 
-VOICE = "en-GB-SoniaNeural"
+DEFAULT_VOICE = "en-GB-SoniaNeural"
 RATE = "+30%"
 FALLBACK_MESSAGE = "Done. Task completed."
 
 # Individual volume settings (MCI volume range: 0 ~ 1000)
 BELL_VOLUME = 200  # Notification bell volume
 TTS_VOLUME = 1000   # TTS speech volume
+
+
+def sound_enabled() -> bool:
+    """Return False only if the state file explicitly says 'off'. Default: on."""
+    try:
+        with open(STATE_PATH, "r", encoding="utf-8") as f:
+            return f.read().strip().lower() != "off"
+    except Exception:
+        return True
+
+
+def get_voice() -> str:
+    """Return the selected voice from alert_voice.state, or DEFAULT_VOICE."""
+    try:
+        with open(VOICE_STATE_PATH, "r", encoding="utf-8") as f:
+            v = f.read().strip()
+            return v if v else DEFAULT_VOICE
+    except Exception:
+        return DEFAULT_VOICE
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -156,7 +177,7 @@ def debug_log(msg: str, mode: str = "a") -> None:
 # TTS
 # ---------------------------------------------------------------------------
 
-def speak(message: str, sound: str = "bell") -> None:
+def speak(message: str, sound: str = "bell", voice: str = None) -> None:
     """Play a notification sound while generating TTS in parallel, then play the TTS.
 
     The bell/noti sound and the TTS generation (which is a network round-trip
@@ -167,6 +188,7 @@ def speak(message: str, sound: str = "bell") -> None:
     t_start = time.time()
     message = sanitize(message)
     sound_path = NOTI_PATH if sound == "noti" else BELL_PATH
+    selected_voice = voice or get_voice()
 
     # Start the notification sound immediately, without waiting for it.
     bell_thread = play_async(sound_path, volume=BELL_VOLUME)
@@ -180,10 +202,10 @@ def speak(message: str, sound: str = "bell") -> None:
 
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
             tmp_path = tmp.name
-        communicate = edge_tts.Communicate(message, VOICE, rate=RATE)
+        communicate = edge_tts.Communicate(message, selected_voice, rate=RATE)
         asyncio.run(communicate.save(tmp_path))
         t_tts_done = time.time()
-        debug_log(f"TIMING: TTS generated at +{t_tts_done - t_start:.2f}s "
+        debug_log(f"TIMING: TTS ({selected_voice}) generated at +{t_tts_done - t_start:.2f}s "
                    f"(took {t_tts_done - t_bell_started:.2f}s)")
     except Exception as e:
         debug_log(f"TTS_ERROR: {type(e).__name__}: {e}")
@@ -222,11 +244,27 @@ def main():
     parser.add_argument("--sound", "-s", type=str, default="bell",
                         choices=["bell", "noti"],
                         help="Notification sound to play (default: bell)")
+    parser.add_argument("--voice", "-v", type=str, default=None,
+                        help="TTS voice to use (default: alert_voice.state or en-GB-SoniaNeural)")
+    parser.add_argument("--toggle", type=str, default=None,
+                        choices=["on", "off", "status"],
+                        help="Toggle alert sound on/off or check status")
     args = parser.parse_args()
+
+    if args.toggle:
+        from alert_sound import set_state
+        set_state(args.toggle)
+        return
+
+    # Mute guard: do not play sound or generate TTS if alert sound is disabled.
+    if not sound_enabled():
+        debug_log("MUTED: alert audio is disabled via alert_sound.state")
+        print(json.dumps({}))
+        return
 
     if args.message:
         # Called directly from the Notification hook (permission requests).
-        speak(args.message, sound=args.sound)
+        speak(args.message, sound=args.sound, voice=args.voice)
         # Gemini CLI expects a JSON object on stdout (silence is mandatory
         # otherwise). Emit an empty, valid hook response.
         print(json.dumps({}))
@@ -247,13 +285,12 @@ def main():
     except Exception:
         pass
 
-    # Gemini CLI's AfterAgent hook provides the final text in
-    # `prompt_response` (Claude Code called this `last_assistant_message`).
+    # Gemini CLI's AfterAgent hook provides the final text in `prompt_response`.
     assistant_msg = data.get("prompt_response", "")
     message = parse_tts_tag(assistant_msg) or FALLBACK_MESSAGE
 
     debug_log(f"TTS_MESSAGE: {message}")
-    speak(message, sound=args.sound)
+    speak(message, sound=args.sound, voice=args.voice)
 
     # Required: print valid JSON to stdout so Gemini CLI doesn't warn.
     print(json.dumps({}))

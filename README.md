@@ -17,6 +17,18 @@ Gemini CLI가 응답을 끝내거나 도구 권한을 요청할 때 **소리(차
 
 터미널을 계속 쳐다보지 않아도, 다른 작업을 하다가 Gemini CLI가 끝났는지 소리로 알 수 있습니다.
 
+## 빠른 설치 (권장)
+
+Gemini CLI에게 아래 한 줄만 프롬프트로 전달하세요:
+
+```text
+Setup this hook: https://github.com/yuchanh0727-dot/GEMINI_CLI_ALERT_HOOK.git
+```
+
+그걸로 끝입니다. Gemini CLI가 의존성 설치, 훅 파일 배치, `GEMINI.md` 규칙 등록까지 알아서 처리합니다.
+
+---
+
 > [!WARNING]
 > **Windows(PowerShell) 필독 — 명령어 맨 앞에 따옴표를 쓰지 마세요**
 >
@@ -56,6 +68,54 @@ TTS_VOLUME = 1000   # TTS 음성 볼륨
 - 범위는 0~1000 (1000이 100%)
 - 둘은 서로 독립적으로 조절됩니다 (벨소리만 줄이고 TTS는 그대로 두는 것도 가능)
 - 값 바꾼 후 저장만 하면 바로 적용됩니다, 별도 재시작 불필요
+
+## 소리 켜기 / 끄기 (음소거 토글)
+
+회의 중이거나 조용한 장소에서 알림을 일시적으로 끄고 싶을 때는 슬래시 명령어 또는 대화로 제어할 수 있습니다:
+
+| 동작 | 명령어 | 음성/대화 프롬프트 예시 |
+|---|---|---|
+| **소리 켜기 (ON)** | `/alerton` (또는 `/skillon`) | "알림 켜줘", "alert on", "enable alert" |
+| **소리 끄기 (OFF)** | `/alertoff` (또는 `/skilloff`) | "알림 꺼줘", "alert off", "mute alert" |
+
+- 터미널 직접 실행: `python .gemini/hooks/alert/scripts/alert_sound.py on` (또는 `off`, `status`)
+- 설정 상태는 파일(`alert_sound.state`)에 보존되므로 새 세션에서도 유지됩니다.
+
+## 음성 변경 (Voice)
+
+TTS로 읽어주는 음성(Voice)을 취향에 맞게 변경하거나 미리 들어볼 수 있습니다.
+
+```bash
+# 스크립트 경로 변수 (필요 시)
+S=.gemini/hooks/alert/scripts
+
+# Windows / Cross-platform (Python)
+python $S/alert_voice.py list                    # 8개 추천 프리셋 음성 목록 (현재 선택 표시)
+python $S/alert_voice.py sample en-US-GuyNeural  # 미리 들어보기
+python $S/alert_voice.py set en-US-GuyNeural     # 음성 저장 및 적용
+
+# macOS / Linux (Bash)
+bash $S/alert_voice.sh list
+bash $S/alert_voice.sh sample en-US-GuyNeural
+bash $S/alert_voice.sh set en-US-GuyNeural
+```
+
+선택한 음성은 `.gemini/hooks/alert/alert_voice.state`에 저장됩니다. (기본값: `en-GB-SoniaNeural`)
+
+### 커스터마이징 (Customization)
+
+`.gemini/hooks/alert/scripts/alert.py` 상단의 상수를 편집하여 기본 음성 및 발화 속도를 직접 조절할 수도 있습니다:
+
+```python
+DEFAULT_VOICE = "en-GB-SoniaNeural"   # 설정 파일이 없을 때 기본 음성
+RATE = "+30%"                         # 발화 속도
+```
+
+사용 가능한 모든 Edge-TTS 음성 목록 확인:
+```bash
+edge-tts --list-voices
+```
+
 ---
 
 ## 1. Gemini CLI 설치
@@ -106,9 +166,16 @@ your-project/
       alert/
         scripts/
           alert.py             # 소리 + TTS 재생 스크립트
+          alert_sound.py       # 소리 ON/OFF 토글 스크립트 (Python)
+          alert_sound.sh       # 소리 ON/OFF 토글 스크립트 (Bash)
+          alert_voice.py       # TTS 음성 선택/샘플 스크립트 (Python)
+          alert_voice.sh       # TTS 음성 선택/샘플 스크립트 (Bash)
         sounds/
           bell.mp3
           noti.mp3
+    skills/
+      alerton/SKILL.md         # /alerton 명령어 스킬 (소리 켜기)
+      alertoff/SKILL.md        # /alertoff 명령어 스킬 (소리 끄기)
 ```
 
 macOS / Linux:
@@ -285,7 +352,7 @@ Control Interface)을 파이썬 `ctypes`로 직접 호출하도록 바꿨습니�
 | 벨소리 재생 ↔ TTS 생성 | 순차 진행 | 병렬 진행 |
 
 ### v1.3 — 벨/알림음 | TTS음성 소리 크기 별도 조절기능 추가
-| | v1.1 | v1.3(현재) |
+| | v1.1 | v1.3 |
 | Windows 재생 방식 | `winmm.dll` MCI 직접 호출 | `winmm.dll` MCI 직접 호출 |
 | 벨소리 ↔ TTS 음량 | 개별 조절 불가 | **개별 조절 가능** |
 | 벨소리 음량 | 고정/공통 설정 | **별도 설정 가능** |
@@ -296,6 +363,25 @@ Control Interface)을 파이썬 `ctypes`로 직접 호출하도록 바꿨습니�
 **v1.3에서는 벨소리와 TTS의 음량을 각각 독립적으로 조절할 수 있도록 코드를 수정했습니다.**
 
 이를 통해 사용자가 자신의 환경에 맞게 벨소리와 TTS 음성의 크기를 각각 설정할 수 있으며, 벨소리가 TTS 음성을 방해하는 문제를 줄였습니다.
+
+### v1.4 — 한 줄 프롬프트 자동 설치 (`SETUP.md`) 및 `/alerton`, `/alertoff` 스킬 추가
+
+| | v1.3 이전 | v1.4(현재) |
+|---|---|---|
+| 설치 방식 | 수동 클론, 폴더 복사 및 파일 수동 편집 | **한 줄 프롬프트로 AI 에이전트 자동 설정** |
+| 셋업 가이드 | README의 긴 수동 설치 절차 정독 필요 | **에이전트 맞춤형 `SETUP.md` 제공** |
+| 전역/로컬 설정 지원 | 수동 절대경로 계산 및 파일 작성 | **에이전트가 환경에 맞게 자동 구성** |
+| 소리 ON/OFF 제어 | 불가 (수동으로 볼륨 0 수정 필요) | **`/alerton`, `/alertoff` 스킬로 즉시 토글** |
+
+기존 버전에서는 사용자가 리포지토리를 직접 클론한 후, 폴더를 복사하고 의존성을 설치하며 `settings.json`과 `GEMINI.md` 규칙을 수동으로 편집해야 하는 번거로움이 있었습니다.
+
+**v1.4에서는 에이전트 표준 셋업 가이드인 `SETUP.md`를 추가하여, 단 한 줄의 프롬프트만으로 설치를 끝낼 수 있도록 개선했습니다.**
+
+```text
+Setup this hook: https://github.com/yuchanh0727-dot/GEMINI_CLI_ALERT_HOOK.git
+```
+
+또한 **`/alerton`**, **`/alertoff`** 스킬(Skill)과 크로스플랫폼 토글 스크립트(`alert_sound.py`, `alert_sound.sh`)를 탑재하여, 프롬프트나 슬래시 명령어 한 번으로 알림 소리를 켜거나 끌 수 있습니다.
 
 ---
 
